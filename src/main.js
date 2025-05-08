@@ -1,144 +1,112 @@
+// Final Maze Game Fix: Ball Stays in Bounds + No Tunneling
 import Matter from "matter-js";
-const { Engine, Render, Runner, World, Bodies } = Matter;
+const { Engine, Render, Runner, World, Bodies, Body, Events } = Matter;
 
 const WIDTH = 600;
 const HEIGHT = 600;
 const CELLS = 15;
-
 const UNIT_LENGTH = WIDTH / CELLS;
+const WALL_THICKNESS = 2;
 
 const engine = Engine.create();
+engine.world.gravity.y = 0;
+engine.positionIterations = 10;
+engine.velocityIterations = 10;
 const { world } = engine;
+
 const render = Render.create({
   element: document.body,
-  engine: engine,
+  engine,
   options: {
     width: WIDTH,
     height: HEIGHT,
-    wireframes: true,
-  },
+    wireframes: true
+  }
 });
 Render.run(render);
-Runner.run(Runner.create(), engine);
+const runner = Runner.create();
+runner.delta = 1000 / 120;
+Runner.run(runner, engine);
 
-// const shape = Bodies.rectangle(200, 200, 50, 50, { isStatic: true });
-// World.add(world, shape);
-
-// walls
+// Maze border walls
 const walls = [
-  Bodies.rectangle(WIDTH / 2, 0, WIDTH, 2, { isStatic: true }),
-  Bodies.rectangle(WIDTH / 2, HEIGHT, WIDTH, 2, { isStatic: true }),
-  Bodies.rectangle(0, HEIGHT / 2, 2, HEIGHT, { isStatic: true }),
-  Bodies.rectangle(WIDTH, HEIGHT / 2, 2, HEIGHT, { isStatic: true }),
+  Bodies.rectangle(WIDTH / 2, WALL_THICKNESS / 2, WIDTH, WALL_THICKNESS, { isStatic: true }),
+  Bodies.rectangle(WIDTH / 2, HEIGHT - WALL_THICKNESS / 2, WIDTH, WALL_THICKNESS, { isStatic: true }),
+  Bodies.rectangle(WALL_THICKNESS / 2, HEIGHT / 2, WALL_THICKNESS, HEIGHT, { isStatic: true }),
+  Bodies.rectangle(WIDTH - WALL_THICKNESS / 2, HEIGHT / 2, WALL_THICKNESS, HEIGHT, { isStatic: true })
 ];
 World.add(world, walls);
 
-// modifies the array in place - Fisher-Yates shuffle
 const shuffle = (arr) => {
   let counter = arr.length;
   while (counter > 0) {
     const index = Math.floor(Math.random() * counter);
     counter--;
-    const temp = arr[counter]; // Store the current element in a temporary variable
-    arr[counter] = arr[index]; // Replace the current element with a randomly selected element
-    arr[index] = temp; // Place the original current element at the random position
+    [arr[counter], arr[index]] = [arr[index], arr[counter]];
   }
   return arr;
 };
 
-// maze generation
-const grid = Array(CELLS)
-  .fill(null)
-  .map(() => Array(CELLS).fill(false));
-
-const verticals = Array(CELLS)
-  .fill(null)
-  .map(() => Array(CELLS - 1).fill(false));
-
-const horizontals = Array(CELLS - 1)
-  .fill(null)
-  .map(() => Array(CELLS).fill(false));
-
-const startRow = Math.floor(Math.random() * CELLS);
-const startCol = Math.floor(Math.random() * CELLS);
+const grid = Array(CELLS).fill(null).map(() => Array(CELLS).fill(false));
+const verticals = Array(CELLS).fill(null).map(() => Array(CELLS - 1).fill(false));
+const horizontals = Array(CELLS - 1).fill(null).map(() => Array(CELLS).fill(false));
 
 const visitCell = (row, col) => {
-  // if the cell at (row, col) is already visited, return
   if (grid[row][col]) return;
-
-  // mark cell as visited
   grid[row][col] = true;
-
-  // assemble a randomly ordered list of neighbors
   const neighbors = shuffle([
-    [row - 1, col, "up"], // up
-    [row, col + 1, "right"], // right
-    [row + 1, col, "down"], // down
-    [row, col - 1, "left"], // left
+    [row - 1, col, "up"],
+    [row, col + 1, "right"],
+    [row + 1, col, "down"],
+    [row, col - 1, "left"]
   ]);
-  for (let neighbor of neighbors) {
-    const [nextRow, nextCol, direction] = neighbor;
-    // if the neighbor is out of bounds, skip it
-    if (nextRow < 0 || nextRow >= CELLS || nextCol < 0 || nextCol >= CELLS) {
-      continue;
-    }
-    // if the neighbor is visited, skip it and continue to the next neighbor
-    if (grid[nextRow][nextCol]) {
-      continue;
-    }
-    if (direction === "left") {
-      verticals[row][col - 1] = true; // remove the wall between the current cell and the neighbor
-    } else if (direction === "right") {
-      verticals[row][col] = true; // remove the wall between the current cell and the neighbor
-    } else if (direction === "up") {
-      horizontals[row - 1][col] = true; // remove the wall between the current cell and the neighbor
-    } else if (direction === "down") {
-      horizontals[row][col] = true; // remove the wall between the current cell and the neighbor
-    }
+
+  for (let [nextRow, nextCol, direction] of neighbors) {
+    if (nextRow < 0 || nextRow >= CELLS || nextCol < 0 || nextCol >= CELLS) continue;
+    if (grid[nextRow][nextCol]) continue;
+
+    if (direction === "left") verticals[row][col - 1] = true;
+    else if (direction === "right") verticals[row][col] = true;
+    else if (direction === "up") horizontals[row - 1][col] = true;
+    else if (direction === "down") horizontals[row][col] = true;
+
     visitCell(nextRow, nextCol);
   }
 };
-visitCell(startRow, startCol);
 
-// Create horizontal walls where needed
+visitCell(Math.floor(Math.random() * CELLS), Math.floor(Math.random() * CELLS));
+
+// Horizontal maze walls
 horizontals.forEach((row, rowIndex) => {
-  row.forEach((open, columnIndex) => {
-    if (open) {
-      return; // Skip if there's an opening (no wall needed)
-    }
-    // Create a horizontal wall at the bottom of the cell
-    const wall = Bodies.rectangle(
-        columnIndex * UNIT_LENGTH + UNIT_LENGTH / 2, // X position (center of cell)
-        rowIndex * UNIT_LENGTH + UNIT_LENGTH,        // Y position (bottom of cell)
-        UNIT_LENGTH,                                 // Width spans the full cell
-        5,                                           // Height of wall (thickness)
-        { isStatic: true }                           // Make the wall immovable
-    );
-    World.add(world, wall);
+  row.forEach((open, colIndex) => {
+    if (open) return;
+    World.add(world, Bodies.rectangle(
+        colIndex * UNIT_LENGTH + UNIT_LENGTH / 2,
+        rowIndex * UNIT_LENGTH + UNIT_LENGTH,
+        UNIT_LENGTH,
+        5,
+        { isStatic: true }
+    ));
   });
 });
 
-// Create vertical walls where needed
+// Vertical maze walls
 verticals.forEach((row, rowIndex) => {
-  row.forEach((open, columnIndex) => {
-    if (open) {
-      return; // Skip if there's an opening (no wall needed)
-    }
-    // Create a vertical wall on the right side of the cell
-    const wall = Bodies.rectangle(
-        columnIndex * UNIT_LENGTH + UNIT_LENGTH,     // X position (right side of cell)
-        rowIndex * UNIT_LENGTH + UNIT_LENGTH / 2,    // Y position (center of cell)
-        5,                                           // Width of wall (thickness)
-        UNIT_LENGTH,                                 // Height spans the full cell
-        { isStatic: true }                           // Make the wall immovable
-    );
-    World.add(world, wall);
+  row.forEach((open, colIndex) => {
+    if (open) return;
+    World.add(world, Bodies.rectangle(
+        colIndex * UNIT_LENGTH + UNIT_LENGTH,
+        rowIndex * UNIT_LENGTH + UNIT_LENGTH / 2,
+        5,
+        UNIT_LENGTH,
+        { isStatic: true }
+    ));
   });
 });
 
-// goal
+// Goal
 const goal = Bodies.rectangle(
-    WIDTH - UNIT_LENGTH / 2, // Center of the cell,
+    WIDTH - UNIT_LENGTH / 2,
     HEIGHT - UNIT_LENGTH / 2,
     UNIT_LENGTH * 0.7,
     UNIT_LENGTH * 0.7,
@@ -146,9 +114,30 @@ const goal = Bodies.rectangle(
 );
 World.add(world, goal);
 
-const ball = Bodies.circle(UNIT_LENGTH / 2, UNIT_LENGTH / 2, UNIT_LENGTH / 4, {isStatic: false, label: "ball"});
+// Player Ball
+const ball = Bodies.circle(
+    UNIT_LENGTH / 2,
+    UNIT_LENGTH / 2,
+    UNIT_LENGTH / 4,
+    { label: "ball", restitution: 0, friction: 0.1, frictionAir: 0.02, slop: 0 }
+);
 World.add(world, ball);
 
-document.addEventListener("keydown", (event) =>{
-  console.log(event);
-})
+// Movement
+document.addEventListener("keydown", (event) => {
+  const { x, y } = ball.velocity;
+  if (event.key === "w" || event.key === "ArrowUp") Body.setVelocity(ball, { x, y: -5 });
+  else if (event.key === "a" || event.key === "ArrowLeft") Body.setVelocity(ball, { x: -5, y });
+  else if (event.key === "s" || event.key === "ArrowDown") Body.setVelocity(ball, { x, y: 5 });
+  else if (event.key === "d" || event.key === "ArrowRight") Body.setVelocity(ball, { x: 5, y });
+});
+
+// Clamp ball speed to prevent tunneling
+Events.on(engine, "beforeUpdate", () => {
+  const maxSpeed = 10;
+  const { x, y } = ball.velocity;
+  Body.setVelocity(ball, {
+    x: Math.max(Math.min(x, maxSpeed), -maxSpeed),
+    y: Math.max(Math.min(y, maxSpeed), -maxSpeed)
+  });
+});
