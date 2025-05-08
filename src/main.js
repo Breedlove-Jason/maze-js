@@ -5,6 +5,8 @@ const WIDTH = 600;
 const HEIGHT = 600;
 const CELLS = 3;
 
+const UNIT_LENGTH = WIDTH / CELLS;
+
 const engine = Engine.create();
 const { world } = engine;
 const render = Render.create({
@@ -93,6 +95,39 @@ const visitCell = (row, col) => {
     } else if (direction === "down") {
       horizontals[row][col] = true; // remove the wall between the current cell and the neighbor
     }
+    visitCell(nextRow, nextCol);
   }
 };
 visitCell(startRow, startCol);
+
+horizontals.forEach((row, rowIndex) => {
+  row.forEach((open, columnIndex) => {
+    if (open) {
+      return;
+    }
+    const wall = Bodies.rectangle(
+        columnIndex * UNIT_LENGTH + UNIT_LENGTH / 2, // Center of the cell
+        rowIndex * UNIT_LENGTH + UNIT_LENGTH, // Bottom of the cell
+        UNIT_LENGTH, // Wall width
+        5, // Wall height
+        { isStatic: true }
+    );
+    World.add(world, wall);
+  });
+});
+
+verticals.forEach((row, rowIndex) => {
+  row.forEach((open, columnIndex) => {
+    if (open) {
+      return;
+    }
+    const wall = Bodies.rectangle(
+        columnIndex * UNIT_LENGTH + UNIT_LENGTH, // Right side of the cell
+        rowIndex * UNIT_LENGTH + UNIT_LENGTH / 2, // Center of the cell
+        5, // Wall width
+        UNIT_LENGTH, // Wall height
+        { isStatic: true }
+    );
+    World.add(world, wall);
+  });
+});
