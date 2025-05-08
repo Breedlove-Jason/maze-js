@@ -3,7 +3,7 @@ const { Engine, Render, Runner, World, Bodies } = Matter;
 
 const WIDTH = 600;
 const HEIGHT = 600;
-const CELLS = 3;
+const CELLS = 15;
 
 const UNIT_LENGTH = WIDTH / CELLS;
 
@@ -26,10 +26,10 @@ Runner.run(Runner.create(), engine);
 
 // walls
 const walls = [
-  Bodies.rectangle(WIDTH / 2, 0, WIDTH, 40, { isStatic: true }),
-  Bodies.rectangle(WIDTH / 2, HEIGHT, WIDTH, 40, { isStatic: true }),
-  Bodies.rectangle(0, HEIGHT / 2, 40, HEIGHT, { isStatic: true }),
-  Bodies.rectangle(WIDTH, HEIGHT / 2, 40, HEIGHT, { isStatic: true }),
+  Bodies.rectangle(WIDTH / 2, 0, WIDTH, 2, { isStatic: true }),
+  Bodies.rectangle(WIDTH / 2, HEIGHT, WIDTH, 2, { isStatic: true }),
+  Bodies.rectangle(0, HEIGHT / 2, 2, HEIGHT, { isStatic: true }),
+  Bodies.rectangle(WIDTH, HEIGHT / 2, 2, HEIGHT, { isStatic: true }),
 ];
 World.add(world, walls);
 
@@ -100,34 +100,55 @@ const visitCell = (row, col) => {
 };
 visitCell(startRow, startCol);
 
+// Create horizontal walls where needed
 horizontals.forEach((row, rowIndex) => {
   row.forEach((open, columnIndex) => {
     if (open) {
-      return;
+      return; // Skip if there's an opening (no wall needed)
     }
+    // Create a horizontal wall at the bottom of the cell
     const wall = Bodies.rectangle(
-        columnIndex * UNIT_LENGTH + UNIT_LENGTH / 2, // Center of the cell
-        rowIndex * UNIT_LENGTH + UNIT_LENGTH, // Bottom of the cell
-        UNIT_LENGTH, // Wall width
-        5, // Wall height
-        { isStatic: true }
+        columnIndex * UNIT_LENGTH + UNIT_LENGTH / 2, // X position (center of cell)
+        rowIndex * UNIT_LENGTH + UNIT_LENGTH,        // Y position (bottom of cell)
+        UNIT_LENGTH,                                 // Width spans the full cell
+        5,                                           // Height of wall (thickness)
+        { isStatic: true }                           // Make the wall immovable
     );
     World.add(world, wall);
   });
 });
 
+// Create vertical walls where needed
 verticals.forEach((row, rowIndex) => {
   row.forEach((open, columnIndex) => {
     if (open) {
-      return;
+      return; // Skip if there's an opening (no wall needed)
     }
+    // Create a vertical wall on the right side of the cell
     const wall = Bodies.rectangle(
-        columnIndex * UNIT_LENGTH + UNIT_LENGTH, // Right side of the cell
-        rowIndex * UNIT_LENGTH + UNIT_LENGTH / 2, // Center of the cell
-        5, // Wall width
-        UNIT_LENGTH, // Wall height
-        { isStatic: true }
+        columnIndex * UNIT_LENGTH + UNIT_LENGTH,     // X position (right side of cell)
+        rowIndex * UNIT_LENGTH + UNIT_LENGTH / 2,    // Y position (center of cell)
+        5,                                           // Width of wall (thickness)
+        UNIT_LENGTH,                                 // Height spans the full cell
+        { isStatic: true }                           // Make the wall immovable
     );
     World.add(world, wall);
   });
 });
+
+// goal
+const goal = Bodies.rectangle(
+    WIDTH - UNIT_LENGTH / 2, // Center of the cell,
+    HEIGHT - UNIT_LENGTH / 2,
+    UNIT_LENGTH * 0.7,
+    UNIT_LENGTH * 0.7,
+    { isStatic: true, label: "goal" }
+);
+World.add(world, goal);
+
+const ball = Bodies.circle(UNIT_LENGTH / 2, UNIT_LENGTH / 2, UNIT_LENGTH / 4, {isStatic: false, label: "ball"});
+World.add(world, ball);
+
+document.addEventListener("keydown", (event) =>{
+  console.log(event);
+})
