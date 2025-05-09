@@ -1,11 +1,13 @@
 // Final Maze Game Fix: Ball Stays in Bounds + No Tunneling
-import Matter from "matter-js";
+import Matter from 'matter-js';
 const { Engine, Render, Runner, World, Bodies, Body, Events } = Matter;
 
-const WIDTH = 600;
-const HEIGHT = 600;
-const CELLS = 3;
-const UNIT_LENGTH = WIDTH / CELLS;
+const WIDTH = window.innerWidth;
+const HEIGHT = window.innerHeight;
+const CELLS_HORIZONTAL = 14;
+const CELLS_VERTICAL = 10;
+const UNIT_LENGTH_X = WIDTH / CELLS_HORIZONTAL;
+const UNIT_LENGTH_Y = HEIGHT / CELLS_VERTICAL;
 const WALL_THICKNESS = 2;
 
 const engine = Engine.create();
@@ -63,41 +65,49 @@ const shuffle = (arr) => {
   return arr;
 };
 
-const grid = Array(CELLS)
+const grid = Array(CELLS_VERTICAL)
   .fill(null)
-  .map(() => Array(CELLS).fill(false));
-const verticals = Array(CELLS)
+  .map(() => Array(CELLS_HORIZONTAL).fill(false));
+const verticals = Array(CELLS_VERTICAL)
   .fill(null)
-  .map(() => Array(CELLS - 1).fill(false));
-const horizontals = Array(CELLS - 1)
+  .map(() => Array(CELLS_HORIZONTAL - 1).fill(false));
+const horizontals = Array(CELLS_VERTICAL - 1)
   .fill(null)
-  .map(() => Array(CELLS).fill(false));
+  .map(() => Array(CELLS_HORIZONTAL).fill(false));
 
 const visitCell = (row, col) => {
   if (grid[row][col]) return;
   grid[row][col] = true;
   const neighbors = shuffle([
-    [row - 1, col, "up"],
-    [row, col + 1, "right"],
-    [row + 1, col, "down"],
-    [row, col - 1, "left"],
+    [row - 1, col, 'up'],
+    [row, col + 1, 'right'],
+    [row + 1, col, 'down'],
+    [row, col - 1, 'left'],
   ]);
 
   for (let [nextRow, nextCol, direction] of neighbors) {
-    if (nextRow < 0 || nextRow >= CELLS || nextCol < 0 || nextCol >= CELLS)
+    if (
+      nextRow < 0 ||
+      nextRow >= CELLS_VERTICAL ||
+      nextCol < 0 ||
+      nextCol >= CELLS_HORIZONTAL
+    )
       continue;
     if (grid[nextRow][nextCol]) continue;
 
-    if (direction === "left") verticals[row][col - 1] = true;
-    else if (direction === "right") verticals[row][col] = true;
-    else if (direction === "up") horizontals[row - 1][col] = true;
-    else if (direction === "down") horizontals[row][col] = true;
+    if (direction === 'left') verticals[row][col - 1] = true;
+    else if (direction === 'right') verticals[row][col] = true;
+    else if (direction === 'up') horizontals[row - 1][col] = true;
+    else if (direction === 'down') horizontals[row][col] = true;
 
     visitCell(nextRow, nextCol);
   }
 };
 
-visitCell(Math.floor(Math.random() * CELLS), Math.floor(Math.random() * CELLS));
+visitCell(
+  Math.floor(Math.random() * CELLS_VERTICAL),
+  Math.floor(Math.random() * CELLS_HORIZONTAL),
+);
 
 // Horizontal maze walls
 horizontals.forEach((row, rowIndex) => {
@@ -106,12 +116,12 @@ horizontals.forEach((row, rowIndex) => {
     World.add(
       world,
       Bodies.rectangle(
-        colIndex * UNIT_LENGTH + UNIT_LENGTH / 2,
-        rowIndex * UNIT_LENGTH + UNIT_LENGTH,
-        UNIT_LENGTH,
+        colIndex * UNIT_LENGTH_X + UNIT_LENGTH_X / 2,
+        rowIndex * UNIT_LENGTH_Y + UNIT_LENGTH_Y,
+        UNIT_LENGTH_X,
         5,
         {
-          label: "wall",
+          label: 'wall',
           isStatic: true,
         },
       ),
@@ -126,11 +136,11 @@ verticals.forEach((row, rowIndex) => {
     World.add(
       world,
       Bodies.rectangle(
-        colIndex * UNIT_LENGTH + UNIT_LENGTH,
-        rowIndex * UNIT_LENGTH + UNIT_LENGTH / 2,
+        colIndex * UNIT_LENGTH_X + UNIT_LENGTH_X,
+        rowIndex * UNIT_LENGTH_Y + UNIT_LENGTH_Y / 2,
         5,
-        UNIT_LENGTH,
-        { isStatic: true, label: "wall" },
+        UNIT_LENGTH_Y,
+        { isStatic: true, label: 'wall' },
       ),
     );
   });
@@ -138,17 +148,18 @@ verticals.forEach((row, rowIndex) => {
 
 // Goal
 const goal = Bodies.rectangle(
-  WIDTH - UNIT_LENGTH / 2,
-  HEIGHT - UNIT_LENGTH / 2,
-  UNIT_LENGTH * 0.7,
-  UNIT_LENGTH * 0.7,
-  { isStatic: true, label: "goal" },
+  WIDTH - UNIT_LENGTH_X / 2,
+  HEIGHT - UNIT_LENGTH_Y / 2,
+  UNIT_LENGTH_X * 0.7,
+  UNIT_LENGTH_Y * 0.7,
+  { isStatic: true, label: 'goal' },
 );
 World.add(world, goal);
 
+const ballRadius = Math.min(UNIT_LENGTH_X, UNIT_LENGTH_Y) / 4;
 // Player Ball
-const ball = Bodies.circle(UNIT_LENGTH / 2, UNIT_LENGTH / 2, UNIT_LENGTH / 4, {
-  label: "ball",
+const ball = Bodies.circle(UNIT_LENGTH_X / 2, UNIT_LENGTH_Y / 2, ballRadius, {
+  label: 'ball',
   restitution: 0,
   friction: 0.1,
   frictionAir: 0.02,
@@ -157,20 +168,20 @@ const ball = Bodies.circle(UNIT_LENGTH / 2, UNIT_LENGTH / 2, UNIT_LENGTH / 4, {
 World.add(world, ball);
 
 // Movement
-document.addEventListener("keydown", (event) => {
+document.addEventListener('keydown', (event) => {
   const { x, y } = ball.velocity;
-  if (event.key === "w" || event.key === "ArrowUp")
+  if (event.key === 'w' || event.key === 'ArrowUp')
     Body.setVelocity(ball, { x, y: -5 });
-  else if (event.key === "a" || event.key === "ArrowLeft")
+  else if (event.key === 'a' || event.key === 'ArrowLeft')
     Body.setVelocity(ball, { x: -5, y });
-  else if (event.key === "s" || event.key === "ArrowDown")
+  else if (event.key === 's' || event.key === 'ArrowDown')
     Body.setVelocity(ball, { x, y: 5 });
-  else if (event.key === "d" || event.key === "ArrowRight")
+  else if (event.key === 'd' || event.key === 'ArrowRight')
     Body.setVelocity(ball, { x: 5, y });
 });
 
 // Clamp ball speed to prevent tunneling
-Events.on(engine, "beforeUpdate", () => {
+Events.on(engine, 'beforeUpdate', () => {
   const maxSpeed = 10;
   const { x, y } = ball.velocity;
   Body.setVelocity(ball, {
@@ -179,17 +190,16 @@ Events.on(engine, "beforeUpdate", () => {
   });
 });
 
-Events.on(engine, "collisionStart", (event) => {
+Events.on(engine, 'collisionStart', (event) => {
   event.pairs.forEach((collision) => {
-    const labels = ["ball", "goal"];
+    const labels = ['ball', 'goal'];
     if (
       labels.includes(collision.bodyA.label) &&
       labels.includes(collision.bodyB.label)
     ) {
       world.gravity.y = 1;
       world.bodies.forEach((body) => {
-        console.log(body.label);
-        if (body.label.includes("wall")) {
+        if (body.label.includes('wall')) {
           Body.setStatic(body, false);
         }
       });
