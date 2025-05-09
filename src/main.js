@@ -1,4 +1,3 @@
-// Final Maze Game Fix: Ball Stays in Bounds + No Tunneling
 import Matter from 'matter-js';
 const { Engine, Render, Runner, World, Bodies, Body, Events } = Matter;
 
@@ -8,7 +7,6 @@ const CELLS_HORIZONTAL = 14;
 const CELLS_VERTICAL = 10;
 const UNIT_LENGTH_X = WIDTH / CELLS_HORIZONTAL;
 const UNIT_LENGTH_Y = HEIGHT / CELLS_VERTICAL;
-const WALL_THICKNESS = 2;
 
 const engine = Engine.create();
 engine.world.gravity.y = 0;
@@ -22,7 +20,7 @@ const render = Render.create({
   options: {
     width: WIDTH,
     height: HEIGHT,
-    wireframes: true,
+    wireframes: false,
   },
 });
 Render.run(render);
@@ -32,26 +30,22 @@ Runner.run(runner, engine);
 
 // Maze border walls
 const walls = [
-  Bodies.rectangle(WIDTH / 2, WALL_THICKNESS / 2, WIDTH, WALL_THICKNESS, {
+  Bodies.rectangle(WIDTH / 2, 0, WIDTH, 2, {
     isStatic: true,
+    render: { fillStyle: 'silver' },
   }),
-  Bodies.rectangle(
-    WIDTH / 2,
-    HEIGHT - WALL_THICKNESS / 2,
-    WIDTH,
-    WALL_THICKNESS,
-    { isStatic: true },
-  ),
-  Bodies.rectangle(WALL_THICKNESS / 2, HEIGHT / 2, WALL_THICKNESS, HEIGHT, {
+  Bodies.rectangle(WIDTH / 2, HEIGHT, WIDTH, 2, {
     isStatic: true,
+    render: { fillStyle: 'silver' },
   }),
-  Bodies.rectangle(
-    WIDTH - WALL_THICKNESS / 2,
-    HEIGHT / 2,
-    WALL_THICKNESS,
-    HEIGHT,
-    { isStatic: true },
-  ),
+  Bodies.rectangle(0, HEIGHT / 2, 2, HEIGHT, {
+    isStatic: true,
+    render: { fillStyle: 'silver' },
+  }),
+  Bodies.rectangle(WIDTH, HEIGHT / 2, 2, HEIGHT, {
+    isStatic: true,
+    render: { fillStyle: 'silver' },
+  }),
 ];
 World.add(world, walls);
 
@@ -123,6 +117,7 @@ horizontals.forEach((row, rowIndex) => {
         {
           label: 'wall',
           isStatic: true,
+          render: { fillStyle: 'red' },
         },
       ),
     );
@@ -140,7 +135,7 @@ verticals.forEach((row, rowIndex) => {
         rowIndex * UNIT_LENGTH_Y + UNIT_LENGTH_Y / 2,
         5,
         UNIT_LENGTH_Y,
-        { isStatic: true, label: 'wall' },
+        { isStatic: true, label: 'wall', render: { fillStyle: 'red' } },
       ),
     );
   });
@@ -152,7 +147,7 @@ const goal = Bodies.rectangle(
   HEIGHT - UNIT_LENGTH_Y / 2,
   UNIT_LENGTH_X * 0.7,
   UNIT_LENGTH_Y * 0.7,
-  { isStatic: true, label: 'goal' },
+  { isStatic: true, label: 'goal', render: { fillStyle: 'green' } },
 );
 World.add(world, goal);
 
@@ -160,6 +155,7 @@ const ballRadius = Math.min(UNIT_LENGTH_X, UNIT_LENGTH_Y) / 4;
 // Player Ball
 const ball = Bodies.circle(UNIT_LENGTH_X / 2, UNIT_LENGTH_Y / 2, ballRadius, {
   label: 'ball',
+  render: { fillStyle: 'cyan' },
   restitution: 0,
   friction: 0.1,
   frictionAir: 0.02,
@@ -197,10 +193,13 @@ Events.on(engine, 'collisionStart', (event) => {
       labels.includes(collision.bodyA.label) &&
       labels.includes(collision.bodyB.label)
     ) {
-      world.gravity.y = 1;
+      document.querySelector('.winner').classList.remove('hidden');
+      world.gravity.y = 1; // Enable gravity
       world.bodies.forEach((body) => {
-        if (body.label.includes('wall')) {
-          Body.setStatic(body, false);
+        if (body.label === 'wall') {
+          Body.setStatic(body, false); // Make walls dynamic
+          body.restitution = 0.5; // Add bounciness
+          body.friction = 0.1; // Reduce friction for better bounce
         }
       });
     }
