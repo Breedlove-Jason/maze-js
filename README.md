@@ -22,13 +22,11 @@ A JavaScript-based interactive maze game with procedural generation and physics-
 - **[Vite](https://vitejs.dev/)** – Lightning-fast frontend tooling
 
 ## 🚀 Live Demo
+[![Netlify Status](https://api.netlify.com/api/v1/badges/5e657752-20bd-49b2-8c3e-923b7f172976/deploy-status)](https://app.netlify.com/sites/maze-js1/deploys)
 
 👉 [Click here to play Maze-JS](https://maze-js1.netlify.app)
 
-![Maze-JS Screenshot](https://maze-js1.netlify.app/screenshot.png)
-> Click the image above to play the game!
-
-
+![screenshot.png](screenshot.png)
 ## 📦 Installation
 
 1. Clone the repository:
