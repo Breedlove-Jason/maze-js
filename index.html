@@ -1,14 +1,13 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Maze JS</title>
-    <link rel="stylesheet" href="/src/style.css" />
-  </head>
-  <body>
-  <div class="winner hidden">
-    <h1>Congratulations! You Win!</h1>
-  </div>
-    <script type="module" src="/src/main.js"></script>
-  </body>
-</html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#121b20"><title>Maze · The Arcade · Jason Breedlove</title><meta name="description" content="Find your way through a fresh maze. Choose four difficulty levels, guide the ball to the exit, and watch the walls fall."><link rel="icon" href="/icon.svg" type="image/svg+xml"></head>
+<body>
+<header><a class="brand" href="https://www.jasonbreedlove.dev">JB <span>/ THE ARCADE</span></a><a href="https://github.com/Breedlove-Jason/maze-js">View source ↗</a></header>
+<main>
+<section class="intro"><p class="eyebrow">NO. 04 / MAZE</p><h1>Find your<br><em>own way.</em></h1><p class="lede">A few wrong turns.<br>One satisfying way out.</p><div class="settings"><label for="difficulty">CHOOSE YOUR CHALLENGE</label><select id="difficulty" aria-describedby="difficulty-help"><option value="easy">Easy · 12 × 9</option><option value="medium">Medium · 20 × 15</option><option value="hard">Hard · 28 × 21</option><option value="expert">Expert · 40 × 30</option></select><p id="difficulty-help">Changing difficulty starts a fresh maze.</p></div><div class="rules"><p class="eyebrow">FOLLOW YOUR CURIOSITY</p><p>Guide the <strong class="mint">mint ball</strong> to the <strong class="gold">gold exit</strong>. Find your way through, then watch the walls fall.</p><p><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or arrow keys<br><kbd>Space</kbd> to pause · touch controls below</p></div></section>
+<section class="game" aria-label="Maze game"><div class="scoreboard"><div><span>CHALLENGE</span><strong id="level">Easy</strong></div><div><span>TIME</span><strong id="timer">00:00</strong></div><div><span>BEST</span><strong id="best">—</strong></div></div>
+<div class="court"><div id="board" tabindex="0" role="application" aria-label="Maze court. Use arrow keys or WASD to guide the ball to the exit."></div><div id="overlay"><p class="eyebrow" id="overlay-label">A NEW PATH AWAITS</p><h2 id="overlay-title">Take the first turn.</h2><p id="overlay-copy">The clock starts when you do.</p><button id="play">Start exploring ↗</button></div></div>
+<div class="under"><p id="status" role="status">Ready. Reach the gold exit at the bottom right.</p><span id="grid-size">12 × 9 CELLS</span></div>
+<div class="controls"><button id="pause" disabled>Pause</button><button id="new">New maze ↗</button><div class="dpad" aria-label="Touch controls"><button data-dir="up" aria-label="Move up">↑</button><button data-dir="left" aria-label="Move left">←</button><button data-dir="down" aria-label="Move down">↓</button><button data-dir="right" aria-label="Move right">→</button></div></div></section>
+</main><footer><span>Every maze has a way through. Built by Jason Breedlove.</span><a href="https://www.jasonbreedlove.dev/#projects">Back to the portfolio ↗</a></footer><script type="module" src="/src/main.js"></script>
+</body></html>
