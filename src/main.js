@@ -1,207 +1,102 @@
+import './style.css';
 import Matter from 'matter-js';
-const { Engine, Render, Runner, World, Bodies, Body, Events } = Matter;
-
-const WIDTH = window.innerWidth;
-const HEIGHT = window.innerHeight;
-const CELLS_HORIZONTAL = 40;
-const CELLS_VERTICAL = 30;
-const UNIT_LENGTH_X = WIDTH / CELLS_HORIZONTAL;
-const UNIT_LENGTH_Y = HEIGHT / CELLS_VERTICAL;
-
-const engine = Engine.create();
-engine.world.gravity.y = 0;
-engine.positionIterations = 10;
-engine.velocityIterations = 10;
-const { world } = engine;
-
-const render = Render.create({
-  element: document.body,
-  engine,
-  options: {
-    width: WIDTH,
-    height: HEIGHT,
-    wireframes: false,
-  },
-});
+import { LEVELS, generateMaze } from './maze.js';
+import { WIDTH, HEIGHT, populateWorld } from './world.js';
+const { Engine, Render, Composite, Body, Events } = Matter;
+const $ = id => document.getElementById(id);
+const engine = Engine.create({ positionIterations: 10, velocityIterations: 10 });
+engine.gravity.y = 0;
+const render = Render.create({ element: $('board'), engine,
+  options: { width: WIDTH, height: HEIGHT, wireframes: false, background: '#101c20', pixelRatio: 1 } });
+render.canvas.setAttribute('aria-hidden', 'true');
 Render.run(render);
-const runner = Runner.create();
-runner.delta = 1000 / 120;
-Runner.run(runner, engine);
-
-// Maze border walls
-const walls = [
-  Bodies.rectangle(WIDTH / 2, 0, WIDTH, 2, {
-    isStatic: true,
-    render: { fillStyle: 'silver' },
-  }),
-  Bodies.rectangle(WIDTH / 2, HEIGHT, WIDTH, 2, {
-    isStatic: true,
-    render: { fillStyle: 'silver' },
-  }),
-  Bodies.rectangle(0, HEIGHT / 2, 2, HEIGHT, {
-    isStatic: true,
-    render: { fillStyle: 'silver' },
-  }),
-  Bodies.rectangle(WIDTH, HEIGHT / 2, 2, HEIGHT, {
-    isStatic: true,
-    render: { fillStyle: 'silver' },
-  }),
-];
-World.add(world, walls);
-
-const shuffle = (arr) => {
-  let counter = arr.length;
-  while (counter > 0) {
-    const index = Math.floor(Math.random() * counter);
-    counter--;
-    [arr[counter], arr[index]] = [arr[index], arr[counter]];
+let ball, cell, difficulty = 'easy', state = 'ready', elapsed = 0, previous = 0, accumulator = 0, celebration = 0;
+const held = new Set(), touch = new Set();
+const directions = { ArrowUp: 'up', w: 'up', ArrowDown: 'down', s: 'down', ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right' };
+const time = ms => { const total = Math.floor(ms / 1000); return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`; };
+function best() { try { const value = Number(localStorage.getItem(`jb-maze-best-${difficulty}`)); return Number.isFinite(value) && value > 0 ? value : null; } catch { return null; } }
+function clearInput() { held.clear(); touch.clear(); if (ball) Body.setVelocity(ball, { x: 0, y: 0 }); }
+function showState() {
+  $('overlay').hidden = state === 'running';
+  $('overlay').classList.toggle('won', state === 'won');
+  $('pause').disabled = state !== 'running';
+  const copy = {
+    ready: ['A NEW PATH AWAITS', 'Take the first turn.', 'The clock starts when you do.', 'Start exploring ↗', 'Ready. Reach the gold exit at the bottom right.'],
+    paused: ['NO NEED TO RUSH', 'Find your bearings.', 'Your route is waiting right here.', 'Resume exploring ↗', 'Paused. Your timer is stopped.'],
+    won: ['YOU FOUND YOUR WAY', 'Down come the walls.', `${LEVELS[difficulty].label} completed in ${time(elapsed)}.`, 'Explore another ↗', `Maze complete in ${time(elapsed)}. Choose another challenge or play again.`],
+    running: ['', '', '', '', 'Find the gold exit. Space pauses your journey.'],
+  }[state];
+  ['overlay-label', 'overlay-title', 'overlay-copy', 'play', 'status'].forEach((id, i) => { $(id).textContent = copy[i]; });
+}
+function newMaze() {
+  clearInput();
+  difficulty = Object.hasOwn(LEVELS, $('difficulty').value) ? $('difficulty').value : 'easy';
+  const level = LEVELS[difficulty];
+  Composite.clear(engine.world, false); Engine.clear(engine); engine.gravity.y = 0;
+  ({ ball, cell } = populateWorld(engine.world, generateMaze(level.cols, level.rows)));
+  elapsed = 0; accumulator = 0; celebration = 0; previous = 0; state = 'ready';
+  $('level').textContent = level.label;
+  $('grid-size').textContent = `${level.cols} × ${level.rows} CELLS`;
+  $('timer').textContent = time(0); $('best').textContent = best() ? time(best()) : '—';
+  showState();
+}
+function start() {
+  if (state === 'won') newMaze();
+  clearInput(); state = 'running'; previous = 0; accumulator = 0;
+  showState(); $('board').focus({ preventScroll: true });
+}
+function pause() { clearInput(); if (state === 'running') { state = 'paused'; showState(); } }
+function win() {
+  if (state !== 'running') return;
+  clearInput(); state = 'won';
+  if (!best() || elapsed < best()) { try { localStorage.setItem(`jb-maze-best-${difficulty}`, String(elapsed)); } catch {} }
+  $('best').textContent = best() ? time(best()) : '—';
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    engine.gravity.y = 1; celebration = 2500;
+    engine.world.bodies.filter(body => body.label === 'wall').forEach(body => { Body.setStatic(body, false); body.restitution = .3; });
   }
-  return arr;
-};
-
-const grid = Array(CELLS_VERTICAL)
-  .fill(null)
-  .map(() => Array(CELLS_HORIZONTAL).fill(false));
-const verticals = Array(CELLS_VERTICAL)
-  .fill(null)
-  .map(() => Array(CELLS_HORIZONTAL - 1).fill(false));
-const horizontals = Array(CELLS_VERTICAL - 1)
-  .fill(null)
-  .map(() => Array(CELLS_HORIZONTAL).fill(false));
-
-const visitCell = (row, col) => {
-  if (grid[row][col]) return;
-  grid[row][col] = true;
-  const neighbors = shuffle([
-    [row - 1, col, 'up'],
-    [row, col + 1, 'right'],
-    [row + 1, col, 'down'],
-    [row, col - 1, 'left'],
-  ]);
-
-  for (let [nextRow, nextCol, direction] of neighbors) {
-    if (
-      nextRow < 0 ||
-      nextRow >= CELLS_VERTICAL ||
-      nextCol < 0 ||
-      nextCol >= CELLS_HORIZONTAL
-    )
-      continue;
-    if (grid[nextRow][nextCol]) continue;
-
-    if (direction === 'left') verticals[row][col - 1] = true;
-    else if (direction === 'right') verticals[row][col] = true;
-    else if (direction === 'up') horizontals[row - 1][col] = true;
-    else if (direction === 'down') horizontals[row][col] = true;
-
-    visitCell(nextRow, nextCol);
-  }
-};
-
-visitCell(
-  Math.floor(Math.random() * CELLS_VERTICAL),
-  Math.floor(Math.random() * CELLS_HORIZONTAL),
-);
-
-// Horizontal maze walls
-horizontals.forEach((row, rowIndex) => {
-  row.forEach((open, colIndex) => {
-    if (open) return;
-    World.add(
-      world,
-      Bodies.rectangle(
-        colIndex * UNIT_LENGTH_X + UNIT_LENGTH_X / 2,
-        rowIndex * UNIT_LENGTH_Y + UNIT_LENGTH_Y,
-        UNIT_LENGTH_X,
-        5,
-        {
-          label: 'wall',
-          isStatic: true,
-          render: { fillStyle: 'red' },
-        },
-      ),
-    );
-  });
+  showState();
+}
+Events.on(engine, 'collisionStart', event => {
+  if (event.pairs.some(({ bodyA, bodyB }) =>
+    (bodyA.label === 'ball' && bodyB.label === 'goal') || (bodyB.label === 'ball' && bodyA.label === 'goal'))) win();
 });
-
-// Vertical maze walls
-verticals.forEach((row, rowIndex) => {
-  row.forEach((open, colIndex) => {
-    if (open) return;
-    World.add(
-      world,
-      Bodies.rectangle(
-        colIndex * UNIT_LENGTH_X + UNIT_LENGTH_X,
-        rowIndex * UNIT_LENGTH_Y + UNIT_LENGTH_Y / 2,
-        5,
-        UNIT_LENGTH_Y,
-        { isStatic: true, label: 'wall', render: { fillStyle: 'red' } },
-      ),
-    );
-  });
-});
-
-// Goal
-const goal = Bodies.rectangle(
-  WIDTH - UNIT_LENGTH_X / 2,
-  HEIGHT - UNIT_LENGTH_Y / 2,
-  UNIT_LENGTH_X * 0.7,
-  UNIT_LENGTH_Y * 0.7,
-  { isStatic: true, label: 'goal', render: { fillStyle: 'green' } },
-);
-World.add(world, goal);
-
-const ballRadius = Math.min(UNIT_LENGTH_X, UNIT_LENGTH_Y) / 4;
-// Player Ball
-const ball = Bodies.circle(UNIT_LENGTH_X / 2, UNIT_LENGTH_Y / 2, ballRadius, {
-  label: 'ball',
-  render: { fillStyle: 'cyan' },
-  restitution: 0,
-  friction: 0.1,
-  frictionAir: 0.02,
-  slop: 0,
-});
-World.add(world, ball);
-
-// Movement
-document.addEventListener('keydown', (event) => {
-  const { x, y } = ball.velocity;
-  if (event.key === 'w' || event.key === 'ArrowUp')
-    Body.setVelocity(ball, { x, y: -5 });
-  else if (event.key === 'a' || event.key === 'ArrowLeft')
-    Body.setVelocity(ball, { x: -5, y });
-  else if (event.key === 's' || event.key === 'ArrowDown')
-    Body.setVelocity(ball, { x, y: 5 });
-  else if (event.key === 'd' || event.key === 'ArrowRight')
-    Body.setVelocity(ball, { x: 5, y });
-});
-
-// Clamp ball speed to prevent tunneling
-Events.on(engine, 'beforeUpdate', () => {
-  const maxSpeed = 10;
-  const { x, y } = ball.velocity;
-  Body.setVelocity(ball, {
-    x: Math.max(Math.min(x, maxSpeed), -maxSpeed),
-    y: Math.max(Math.min(y, maxSpeed), -maxSpeed),
-  });
-});
-
-Events.on(engine, 'collisionStart', (event) => {
-  event.pairs.forEach((collision) => {
-    const labels = ['ball', 'goal'];
-    if (
-      labels.includes(collision.bodyA.label) &&
-      labels.includes(collision.bodyB.label)
-    ) {
-      document.querySelector('.winner').classList.remove('hidden');
-      world.gravity.y = 1; // Enable gravity
-      world.bodies.forEach((body) => {
-        if (body.label === 'wall') {
-          Body.setStatic(body, false); // Make walls dynamic
-          body.restitution = 0.5; // Add bounciness
-          body.friction = 0.1; // Reduce friction for better bounce
-        }
-      });
+function frame(now) {
+  const dt = previous ? Math.min(now - previous, 50) : 0; previous = now;
+  if (!document.hidden && (state === 'running' || celebration > 0)) {
+    accumulator += dt;
+    while (accumulator >= 1000 / 120) {
+      if (state === 'running') {
+        const active = dir => touch.has(dir) || [...held].some(key => directions[key] === dir);
+        const x = Number(active('right')) - Number(active('left'));
+        const y = Number(active('down')) - Number(active('up'));
+        const length = Math.hypot(x, y) || 1;
+        Body.setVelocity(ball, { x: x / length * cell * .065, y: y / length * cell * .065 });
+        elapsed += 1000 / 120;
+      } else celebration -= 1000 / 120;
+      Engine.update(engine, 1000 / 120); accumulator -= 1000 / 120;
+      if (state === 'won' && celebration <= 0) { accumulator = 0; break; }
     }
-  });
+    $('timer').textContent = time(elapsed);
+  }
+  requestAnimationFrame(frame);
+}
+$('play').addEventListener('click', start);
+$('new').addEventListener('click', newMaze);
+$('pause').addEventListener('click', pause);
+$('difficulty').addEventListener('change', newMaze);
+$('board').addEventListener('keydown', event => {
+  const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+  if (directions[key]) { event.preventDefault(); if (state === 'running') held.add(key); }
+  if (event.code === 'Space') { event.preventDefault(); if (!event.repeat) state === 'running' ? pause() : start(); }
 });
+window.addEventListener('keyup', event => held.delete(event.key.length === 1 ? event.key.toLowerCase() : event.key));
+$('board').addEventListener('blur', pause);
+$('board').addEventListener('pointerdown', () => $('board').focus({ preventScroll: true }));
+for (const button of document.querySelectorAll('[data-dir]')) {
+  button.addEventListener('pointerdown', event => { event.preventDefault(); $('board').focus({ preventScroll: true }); button.setPointerCapture(event.pointerId); if (state === 'running') touch.add(button.dataset.dir); });
+  for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) button.addEventListener(event, () => touch.delete(button.dataset.dir));
+}
+window.addEventListener('blur', pause);
+document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+newMaze(); requestAnimationFrame(frame);
